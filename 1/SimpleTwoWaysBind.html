@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <style type="text/css">
+
+    </style>
+</head>
+
+<body>
+    <div id='text1' v-bind="user.name">ddd</div>
+    <input type="text" v-bind="user.name" id="text2">
+</body>
+<script type="text/javascript">
+    pubsub = {
+        sub: function (event, callback) {
+            this.listers || (this.listers = {});
+            const arr = this.listers[event] || (this.listers[event] = []);
+            arr.push(callback);
+            return this;
+        },
+        pub: function () {
+            var args = Array.prototype.slice.call(arguments);
+            var ev = args.shift();
+            if (!this.listers) return this;
+            if (!this.listers[ev]) return this;
+            for (var i = 0; i < this.listers[ev].length; i++) {
+                this.listers[ev][i].apply(this, args);
+            }
+
+            return this;
+        }
+    };
+
+    var user = { name: '', modelName: 'user' };
+
+    pubsub.sub("UIChange", (fullPropName, value) => {
+        var propPathArr = fullPropName.split('.');
+        eval(propPathArr[0])[propPathArr[1]] = value;
+    });
+
+    function pageElementEventHandler(e) {
+        var target = e.target || e.srcElemnt;
+        var fullPropName = target.getAttribute('v-bind');
+
+        if (fullPropName && fullPropName !== '') {
+            pubsub.pub('UIChange', fullPropName, target.value);
+        }
+    }
+
+    if (document.addEventListener) {
+        document.addEventListener('keyup', pageElementEventHandler, false);
+        document.addEventListener('change', pageElementEventHandler, false);
+    } else {
+        document.attachEvent('onkeyup', pageElementEventHandler);
+        document.attachEvent('onchange', pageElementEventHandler);
+    }
+
+    pubsub.sub("DataChange", (fullPropName, propValue) => {
+        var elements = document.querySelectorAll('[v-bind="' + fullPropName + '"]');
+        for (var i = 0, len = elements.length; i < len; i++) {
+            var elementType = elements[i].tagName.toLowerCase();
+            if (elementType === 'input' || elementType === 'textarea' || elementType === 'select') {
+                elements[i].value = propValue;
+            } else {
+                elements[i].innerHTML = propValue;
+            }
+        }
+    });
+
+    function twoWayBind(obj, property) {
+        var $value = property || '';
+        Object.defineProperty(obj, property, {
+            get: function () {
+                return $value;
+            },
+            set: function (newValue) {
+                $value = newValue;
+                pubsub.pub("DataChange", obj.modelName + '.' + property, newValue);
+            },
+            configurable: true
+        });
+
+    }
+    twoWayBind(user, 'name');
+
+</script>
+
+</html>
